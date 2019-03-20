@@ -85,6 +85,7 @@ type ClientInterface interface {
 	Offers(request OfferRequest) (hProtocol.OffersPage, error)
 	Operations(request OperationRequest) (operations.OperationsPage, error)
 	OperationDetail(id string) (operations.Operation, error)
+	SubmitTransaction(transactionXdr string) (hProtocol.TransactionSuccess, error)
 }
 
 // DefaultTestNetClient is a default client to connect to test network
@@ -171,4 +172,9 @@ type OperationRequest struct {
 	Cursor         string
 	Limit          uint
 	IncludeFailed  bool
+}
+
+type submitRequest struct {
+	endpoint       string
+	transactionXdr string
 }

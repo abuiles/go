@@ -17,7 +17,17 @@ func (c *Client) sendRequest(hr HorizonRequest, a interface{}) (err error) {
 		return
 	}
 
-	req, err := http.NewRequest("GET", c.HorizonURL+endpoint, nil)
+	var req *http.Request
+
+	// check if it is a submitRequest
+	_, ok := hr.(submitRequest)
+	if ok {
+		req, err = http.NewRequest("POST", c.HorizonURL+endpoint, nil)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded; param=value")
+	} else {
+		req, err = http.NewRequest("GET", c.HorizonURL+endpoint, nil)
+	}
+
 	if err != nil {
 		return errors.Wrap(err, "Error creating HTTP request")
 	}
@@ -173,4 +183,14 @@ func (c *Client) OperationDetail(id string) (ops operations.Operation, err error
 
 	ops, err = operations.UnmarshalOperation(baseRecord.GetType(), dataString)
 	return ops, errors.Wrap(err, "Unmarshaling to the correct operation type")
+}
+
+// SubmitTransaction submits a transaction to the network. err can be either error object or horizon.Error object.
+// See https://www.stellar.org/developers/horizon/reference/endpoints/transactions-create.html
+func (c *Client) SubmitTransaction(transactionXdr string) (txSuccess hProtocol.TransactionSuccess,
+	err error) {
+	request := submitRequest{endpoint: "transactions", transactionXdr: transactionXdr}
+	err = c.sendRequest(request, &txSuccess)
+	return
+
 }
