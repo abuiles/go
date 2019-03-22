@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strings"
 	"time"
 
 	hProtocol "github.com/stellar/go/protocols/horizon"
@@ -18,8 +19,8 @@ func (c *Client) sendRequest(hr HorizonRequest, a interface{}) (err error) {
 		return
 	}
 
+	c.HorizonURL = c.fixUrl()
 	var req *http.Request
-
 	// check if it is a submitRequest
 	_, ok := hr.(submitRequest)
 	if ok {
@@ -49,6 +50,11 @@ func (c *Client) sendRequest(hr HorizonRequest, a interface{}) (err error) {
 	err = decodeResponse(resp, &a)
 	cancel()
 	return
+}
+
+// fixUrl strips all slashes(/) at the end of HorizonURL if any, then adds a single slash
+func (c *Client) fixUrl() string {
+	return strings.TrimRight(c.HorizonURL, "/") + "/"
 }
 
 // SetHorizonTimeout allows users to set the number of seconds before a horizon request is cancelled.
@@ -105,7 +111,7 @@ func (c *Client) Assets(request AssetRequest) (assets hProtocol.AssetsPage, err 
 // Stream is for endpoints that support streaming
 func (c *Client) Stream(ctx context.Context, request StreamRequest, handler func(interface{})) (err error) {
 
-	err = request.Stream(ctx, c.HorizonURL, handler)
+	err = request.Stream(ctx, c.fixUrl(), handler)
 	return
 }
 
