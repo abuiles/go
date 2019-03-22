@@ -6,6 +6,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"time"
 
 	hProtocol "github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/protocols/horizon/operations"
@@ -56,6 +57,9 @@ var (
 	// Result() against a `Problem` value that doesn't have the
 	// "result_xdr" extra field populated when it is expected to be.
 	ErrResultNotPopulated = errors.New("result_xdr not populated")
+
+	// HorizonTimeout is the default number of seconds before a request to horizon times out.
+	HorizonTimeout = time.Duration(60)
 )
 
 // HTTP represents the HTTP client that a horizon client uses to communicate
@@ -67,8 +71,9 @@ type HTTP interface {
 
 // Client struct contains data for creating an horizon client that connects to the stellar network
 type Client struct {
-	HorizonURL string
-	HTTP       HTTP
+	HorizonURL     string
+	HTTP           HTTP
+	horizonTimeOut time.Duration
 }
 
 // ClientInterface contains methods implemented by the horizon client
@@ -90,14 +95,16 @@ type ClientInterface interface {
 
 // DefaultTestNetClient is a default client to connect to test network
 var DefaultTestNetClient = &Client{
-	HorizonURL: "https://horizon-testnet.stellar.org/",
-	HTTP:       http.DefaultClient,
+	HorizonURL:     "https://horizon-testnet.stellar.org/",
+	HTTP:           http.DefaultClient,
+	horizonTimeOut: HorizonTimeout,
 }
 
 // DefaultPublicNetClient is a default client to connect to public network
 var DefaultPublicNetClient = &Client{
-	HorizonURL: "https://horizon.stellar.org/",
-	HTTP:       http.DefaultClient,
+	HorizonURL:     "https://horizon.stellar.org/",
+	HTTP:           http.DefaultClient,
+	horizonTimeOut: HorizonTimeout,
 }
 
 // HorizonRequest contains methods implemented by request structs for horizon endpoints

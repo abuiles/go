@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"time"
 
 	hProtocol "github.com/stellar/go/protocols/horizon"
 	"github.com/stellar/go/protocols/horizon/operations"
@@ -34,13 +35,27 @@ func (c *Client) sendRequest(hr HorizonRequest, a interface{}) (err error) {
 	req.Header.Set("X-Client-Name", "go-stellar-sdk")
 	req.Header.Set("X-Client-Version", app.Version())
 
-	resp, err := c.HTTP.Do(req)
+	if c.horizonTimeOut == 0 {
+		c.horizonTimeOut = HorizonTimeout
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*c.horizonTimeOut)
+
+	resp, err := c.HTTP.Do(req.WithContext(ctx))
 	if err != nil {
+		cancel()
 		return
 	}
 
 	err = decodeResponse(resp, &a)
+	cancel()
 	return
+}
+
+// SetHorizonTimeout allows users to set the number of seconds before a horizon request is cancelled.
+// By default, this is 60seconds.
+func (c *Client) SetHorizonTimeout(t uint) *Client {
+	c.horizonTimeOut = time.Duration(t)
+	return c
 }
 
 // AccountDetail returns information for a single account.
