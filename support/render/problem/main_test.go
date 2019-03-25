@@ -2,6 +2,7 @@ package problem
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http/httptest"
@@ -114,6 +115,27 @@ func TestServerErrorConversion(t *testing.T) {
 			)
 		})
 	}
+}
+
+// TestInflate test errors that come inflated from horizon
+func TestInflate(t *testing.T) {
+	kase := struct {
+		name     string
+		p        interface{}
+		want     string
+	}{
+		"renders the type correctly",
+		P{Type: "https://stellar.org/horizon-errors/not_found"},
+		"https://stellar.org/horizon-errors/not_found",
+	}
+
+	t.Run(kase.name, func(t *testing.T) {
+		w := testRender(context.Background(), kase.p)
+		var payload P
+		json.Unmarshal([]byte(w.Body.String()), &payload)
+
+		assert.Equal(t, kase.want, payload.Type)
+	})
 }
 
 func testRender(ctx context.Context, p interface{}) *httptest.ResponseRecorder {
