@@ -120,9 +120,9 @@ func TestServerErrorConversion(t *testing.T) {
 // TestInflate test errors that come inflated from horizon
 func TestInflate(t *testing.T) {
 	kase := struct {
-		name     string
-		p        interface{}
-		want     string
+		name string
+		p    interface{}
+		want string
 	}{
 		"renders the type correctly",
 		P{Type: "https://stellar.org/horizon-errors/not_found"},
