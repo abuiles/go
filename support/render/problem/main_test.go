@@ -132,7 +132,11 @@ func TestInflate(t *testing.T) {
 	t.Run(testCase.name, func(t *testing.T) {
 		w := testRender(context.Background(), testCase.p)
 		var payload P
-		json.Unmarshal([]byte(w.Body.String()), &payload)
+		err := json.Unmarshal([]byte(w.Body.String()), &payload)
+
+		if err != nil {
+			t.Error("expected body to be a JSON encoded value, got ", err)
+		}
 
 		assert.Equal(t, testCase.want, payload.Type)
 	})
