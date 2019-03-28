@@ -10,7 +10,7 @@ import (
 	"strings"
 )
 
-const HorizonHost = "https://stellar.org/horizon-errors/"
+const horizonHost = "https://stellar.org/horizon-errors/"
 
 // P is a struct that represents an error response to be rendered to a connected
 // client.
@@ -46,9 +46,9 @@ func RegisterError(err error, p P) {
 func Inflate(p *P) {
 	//TODO: add requesting url to extra info
 
-	if !strings.HasPrefix(p.Type, HorizonHost) {
-		//TODO: make the HorizonHost prefix configurable
-		p.Type = HorizonHost + p.Type
+	if !strings.HasPrefix(p.Type, horizonHost) {
+		//TODO: make the horizonHost prefix configurable
+		p.Type = horizonHost + p.Type
 	}
 
 	p.Instance = ""
