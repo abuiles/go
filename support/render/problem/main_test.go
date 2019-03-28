@@ -119,7 +119,7 @@ func TestServerErrorConversion(t *testing.T) {
 
 // TestInflate test errors that come inflated from horizon
 func TestInflate(t *testing.T) {
-	kase := struct {
+	testCase := struct {
 		name string
 		p    interface{}
 		want string
@@ -129,12 +129,12 @@ func TestInflate(t *testing.T) {
 		"https://stellar.org/horizon-errors/not_found",
 	}
 
-	t.Run(kase.name, func(t *testing.T) {
-		w := testRender(context.Background(), kase.p)
+	t.Run(testCase.name, func(t *testing.T) {
+		w := testRender(context.Background(), testCase.p)
 		var payload P
 		json.Unmarshal([]byte(w.Body.String()), &payload)
 
-		assert.Equal(t, kase.want, payload.Type)
+		assert.Equal(t, testCase.want, payload.Type)
 	})
 }
 
