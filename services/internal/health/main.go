@@ -57,7 +57,7 @@ func main() {
 
 func init() {
 	rootCmd = &cobra.Command{
-		Use:   "health-check",
+		Use:   "health",
 		Short: "health check server",
 		Long:  `health check server`,
 		Run:   run,
@@ -97,7 +97,7 @@ func (a *App) Serve() {
 		ListenAddr: fmt.Sprintf(":%d", *a.config.Port),
 		Handler:    mux,
 		OnStarting: func() {
-			log.Infof("starting health-check server")
+			log.Infof("starting health server")
 			log.Infof("listening on %d", *a.config.Port)
 		},
 	})
