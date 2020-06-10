@@ -246,7 +246,8 @@ CREATE TABLE accounts (
     threshold_low smallint NOT NULL,
     threshold_medium smallint NOT NULL,
     threshold_high smallint NOT NULL,
-    last_modified_ledger integer NOT NULL
+    last_modified_ledger integer NOT NULL,
+    sponsor character varying(64)
 );
 
 
@@ -259,7 +260,8 @@ CREATE TABLE accounts_data (
     account_id character varying(56) NOT NULL,
     name character varying(64) NOT NULL,
     value character varying(90) NOT NULL,
-    last_modified_ledger integer NOT NULL
+    last_modified_ledger integer NOT NULL,
+    sponsor character varying(64)
 );
 
 
@@ -270,7 +272,8 @@ CREATE TABLE accounts_data (
 CREATE TABLE accounts_signers (
     account_id character varying(64) NOT NULL,
     signer character varying(64) NOT NULL,
-    weight integer NOT NULL
+    weight integer NOT NULL,
+    sponsor character varying(64)
 );
 
 
@@ -558,7 +561,8 @@ CREATE TABLE offers (
     priced integer NOT NULL,
     price double precision NOT NULL,
     flags integer NOT NULL,
-    last_modified_ledger integer NOT NULL
+    last_modified_ledger integer NOT NULL,
+    sponsor character varying(64)
 );
 
 
@@ -577,7 +581,8 @@ CREATE TABLE trust_lines (
     buying_liabilities bigint NOT NULL,
     selling_liabilities bigint NOT NULL,
     flags integer NOT NULL,
-    last_modified_ledger integer NOT NULL
+    last_modified_ledger integer NOT NULL,
+    sponsor character varying(64)
 );
 
 
