@@ -1,4 +1,4 @@
-package horizon
+package actions
 
 import (
 	"context"
@@ -11,7 +11,6 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/stellar/go/protocols/horizon"
-	"github.com/stellar/go/services/horizon/internal/actions"
 	horizonContext "github.com/stellar/go/services/horizon/internal/context"
 	"github.com/stellar/go/services/horizon/internal/db2/history"
 	"github.com/stellar/go/services/horizon/internal/paths"
@@ -33,16 +32,16 @@ func mockPathFindingClient(
 ) test.RequestHelper {
 	router := chi.NewRouter()
 	findPaths := FindPathsHandler{
-		pathFinder:           finder,
-		maxAssetsParamLength: maxAssetsParamLength,
-		maxPathLength:        3,
-		setLastLedgerHeader:  true,
+		PathFinder:           finder,
+		MaxAssetsParamLength: maxAssetsParamLength,
+		MaxPathLength:        3,
+		SetLastLedgerHeader:  true,
 	}
 	findFixedPaths := FindFixedPathsHandler{
-		pathFinder:           finder,
-		maxAssetsParamLength: maxAssetsParamLength,
-		maxPathLength:        3,
-		setLastLedgerHeader:  true,
+		PathFinder:           finder,
+		MaxAssetsParamLength: maxAssetsParamLength,
+		MaxPathLength:        3,
+		SetLastLedgerHeader:  true,
 	}
 
 	router.Use(func(next http.Handler) http.Handler {
@@ -77,7 +76,7 @@ func TestPathActionsStillIngesting(t *testing.T) {
 	defer tt.Finish()
 	test.ResetHorizonDB(t, tt.HorizonDB)
 
-	assertions := &Assertions{tt.Assert}
+	assertions := &test.Assertions{tt.Assert}
 	finder := paths.MockFinder{}
 	finder.On("Find", mock.Anything, uint(3)).
 		Return([]paths.Path{}, uint32(0), simplepath.ErrEmptyInMemoryOrderBook).Times(2)
@@ -109,7 +108,7 @@ func TestPathActionsStillIngesting(t *testing.T) {
 		w := rh.Get(uri + "?" + q.Encode())
 		assertions.Equal(horizonProblem.StillIngesting.Status, w.Code)
 		assertions.Problem(w.Body, horizonProblem.StillIngesting)
-		assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
+		assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
 	}
 
 	q = make(url.Values)
@@ -123,7 +122,7 @@ func TestPathActionsStillIngesting(t *testing.T) {
 	w := rh.Get("/paths/strict-send" + "?" + q.Encode())
 	assertions.Equal(horizonProblem.StillIngesting.Status, w.Code)
 	assertions.Problem(w.Body, horizonProblem.StillIngesting)
-	assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
+	assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
 
 	finder.AssertExpectations(t)
 }
@@ -258,12 +257,12 @@ func TestPathActionsStrictReceive(t *testing.T) {
 	for _, uri := range []string{"/paths", "/paths/strict-receive"} {
 		w := rh.Get(uri + "?" + withSourceAccount.Encode())
 		tt.Assert.Equal(http.StatusOK, w.Code)
-		tt.Assert.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
+		tt.Assert.Equal("1234", w.Header().Get(LastLedgerHeaderName))
 
 		withSourceAssetsBalance = false
 		w = rh.Get(uri + "?" + withSourceAssets.Encode())
 		tt.Assert.Equal(http.StatusOK, w.Code)
-		tt.Assert.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
+		tt.Assert.Equal("1234", w.Header().Get(LastLedgerHeaderName))
 		withSourceAssetsBalance = true
 	}
 
@@ -274,7 +273,7 @@ func TestPathActionsEmptySourceAcount(t *testing.T) {
 	tt := test.Start(t)
 	defer tt.Finish()
 	test.ResetHorizonDB(t, tt.HorizonDB)
-	assertions := &Assertions{tt.Assert}
+	assertions := &test.Assertions{tt.Assert}
 	finder := paths.MockFinder{}
 	rh := mockPathFindingClient(
 		tt,
@@ -307,7 +306,7 @@ func TestPathActionsEmptySourceAcount(t *testing.T) {
 		inMemoryResponse := []horizon.Path{}
 		tt.UnmarshalPage(w.Body, &inMemoryResponse)
 		assertions.Empty(inMemoryResponse)
-		tt.Assert.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
+		tt.Assert.Equal("", w.Header().Get(LastLedgerHeaderName))
 	}
 }
 
@@ -315,7 +314,7 @@ func TestPathActionsSourceAssetsValidation(t *testing.T) {
 	tt := test.Start(t)
 	defer tt.Finish()
 	test.ResetHorizonDB(t, tt.HorizonDB)
-	assertions := &Assertions{tt.Assert}
+	assertions := &test.Assertions{tt.Assert}
 	finder := paths.MockFinder{}
 	rh := mockPathFindingClient(
 		tt,
@@ -386,7 +385,7 @@ func TestPathActionsSourceAssetsValidation(t *testing.T) {
 			w := rh.Get("/paths/strict-receive?" + testCase.q.Encode())
 			assertions.Equal(testCase.expectedProblem.Status, w.Code)
 			assertions.Problem(w.Body, testCase.expectedProblem)
-			assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
+			assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
 		})
 	}
 }
@@ -395,7 +394,7 @@ func TestPathActionsDestinationAssetsValidation(t *testing.T) {
 	tt := test.Start(t)
 	defer tt.Finish()
 	test.ResetHorizonDB(t, tt.HorizonDB)
-	assertions := &Assertions{tt.Assert}
+	assertions := &test.Assertions{tt.Assert}
 	finder := paths.MockFinder{}
 	rh := mockPathFindingClient(
 		tt,
@@ -469,7 +468,7 @@ func TestPathActionsDestinationAssetsValidation(t *testing.T) {
 			w := rh.Get("/paths/strict-send?" + testCase.q.Encode())
 			assertions.Equal(testCase.expectedProblem.Status, w.Code)
 			assertions.Problem(w.Body, testCase.expectedProblem)
-			assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
+			assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
 		})
 	}
 }
@@ -478,7 +477,7 @@ func TestPathActionsStrictSend(t *testing.T) {
 	tt := test.Start(t)
 	defer tt.Finish()
 	test.ResetHorizonDB(t, tt.HorizonDB)
-	assertions := &Assertions{tt.Assert}
+	assertions := &test.Assertions{tt.Assert}
 	historyQ := &history.Q{tt.HorizonSession()}
 	destinationAccount := "GARSFJNXJIHO6ULUBK3DBYKVSIZE7SC72S5DYBCHU7DKL22UXKVD7MXP"
 	destinationAssets := []xdr.Asset{
@@ -583,13 +582,13 @@ func TestPathActionsStrictSend(t *testing.T) {
 
 	w := rh.Get("/paths/strict-send?" + q.Encode())
 	assertions.Equal(http.StatusOK, w.Code)
-	assertions.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
+	assertions.Equal("1234", w.Header().Get(LastLedgerHeaderName))
 
 	q.Del("destination_account")
 	q.Add("destination_assets", assetsToURLParam(destinationAssets))
 	w = rh.Get("/paths/strict-send?" + q.Encode())
 	assertions.Equal(http.StatusOK, w.Code)
-	assertions.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
+	assertions.Equal("1234", w.Header().Get(LastLedgerHeaderName))
 
 	finder.AssertExpectations(t)
 }

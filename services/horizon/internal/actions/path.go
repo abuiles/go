@@ -1,4 +1,4 @@
-package horizon
+package actions
 
 import (
 	"context"
@@ -8,10 +8,7 @@ import (
 
 	"github.com/stellar/go/amount"
 	"github.com/stellar/go/protocols/horizon"
-	"github.com/stellar/go/services/horizon/internal/actions"
-	"github.com/stellar/go/services/horizon/internal/ledger"
 	"github.com/stellar/go/services/horizon/internal/paths"
-	hProblem "github.com/stellar/go/services/horizon/internal/render/problem"
 	horizonProblem "github.com/stellar/go/services/horizon/internal/render/problem"
 	"github.com/stellar/go/services/horizon/internal/resourceadapter"
 	"github.com/stellar/go/services/horizon/internal/simplepath"
@@ -23,12 +20,12 @@ import (
 
 // FindPathsHandler is the http handler for the find payment paths endpoint
 type FindPathsHandler struct {
-	staleThreshold       uint
-	maxPathLength        uint
-	checkHistoryIsStale  bool
-	setLastLedgerHeader  bool
-	maxAssetsParamLength int
-	pathFinder           paths.Finder
+	StaleThreshold       uint
+	MaxPathLength        uint
+	CheckHistoryIsStale  bool
+	SetLastLedgerHeader  bool
+	MaxAssetsParamLength int
+	PathFinder           paths.Finder
 }
 
 // StrictReceivePathsQuery query struct for paths/strict-send end-point
@@ -73,7 +70,7 @@ func (q StrictReceivePathsQuery) DestinationAsset() xdr.Asset {
 
 // URITemplate returns a rfc6570 URI template for the query struct
 func (q StrictReceivePathsQuery) URITemplate() string {
-	return "/paths/strict-receive{?" + strings.Join(actions.GetURIParams(&q, false), ",") + "}"
+	return "/paths/strict-receive{?" + strings.Join(GetURIParams(&q, false), ",") + "}"
 }
 
 // Validate runs custom validations.
@@ -82,7 +79,7 @@ func (q StrictReceivePathsQuery) Validate() error {
 		return sourceAssetsOrSourceAccount
 	}
 
-	err := actions.ValidateAssetParams(
+	err := ValidateAssetParams(
 		q.DestinationAssetType,
 		q.DestinationAssetCode,
 		q.DestinationAssetIssuer,
@@ -116,18 +113,8 @@ var sourceAssetsOrSourceAccount = problem.P{
 // ServeHTTP implements the http.Handler interface
 func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	if handler.checkHistoryIsStale && isHistoryStale(handler.staleThreshold) {
-		ls := ledger.CurrentState()
-		err := hProblem.StaleHistory
-		err.Extras = map[string]interface{}{
-			"history_latest_ledger": ls.HistoryLatest,
-			"core_latest_ledger":    ls.CoreLatest,
-		}
-		problem.Render(ctx, w, err)
-		return
-	}
 	qp := StrictReceivePathsQuery{}
-	err := actions.GetParams(&qp, r)
+	err := GetParams(&qp, r)
 	if err != nil {
 		problem.Render(ctx, w, err)
 		return
@@ -138,10 +125,10 @@ func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	sourceAccount := qp.SourceAccount
 	query.SourceAssets, _ = qp.Assets()
 
-	if len(query.SourceAssets) > handler.maxAssetsParamLength {
+	if len(query.SourceAssets) > handler.MaxAssetsParamLength {
 		p := problem.MakeInvalidFieldProblem(
 			"source_assets",
-			fmt.Errorf("list of assets exceeds maximum length of %d", handler.maxPathLength),
+			fmt.Errorf("list of assets exceeds maximum length of %d", handler.MaxPathLength),
 		)
 		problem.Render(ctx, w, p)
 		return
@@ -167,7 +154,7 @@ func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	records := []paths.Path{}
 	if len(query.SourceAssets) > 0 {
 		var lastIngestedLedger uint32
-		records, lastIngestedLedger, err = handler.pathFinder.Find(query, handler.maxPathLength)
+		records, lastIngestedLedger, err = handler.PathFinder.Find(query, handler.MaxPathLength)
 		if err == simplepath.ErrEmptyInMemoryOrderBook {
 			err = horizonProblem.StillIngesting
 		}
@@ -176,11 +163,11 @@ func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			return
 		}
 
-		if handler.setLastLedgerHeader {
+		if handler.SetLastLedgerHeader {
 			// To make the Last-Ledger header consistent with the response content,
 			// we need to extract it from the ledger and not the DB.
 			// Thus, we overwrite the header if it was previously set.
-			actions.SetLastLedgerHeader(w, lastIngestedLedger)
+			SetLastLedgerHeader(w, lastIngestedLedger)
 		}
 	}
 
@@ -205,10 +192,10 @@ func renderPaths(ctx context.Context, records []paths.Path, w http.ResponseWrite
 // FindFixedPathsHandler is the http handler for the find fixed payment paths endpoint
 // Fixed payment paths are payment paths where both the source and destination asset are fixed
 type FindFixedPathsHandler struct {
-	maxPathLength        uint
-	maxAssetsParamLength int
-	setLastLedgerHeader  bool
-	pathFinder           paths.Finder
+	MaxPathLength        uint
+	MaxAssetsParamLength int
+	SetLastLedgerHeader  bool
+	PathFinder           paths.Finder
 }
 
 var destinationAssetsOrDestinationAccount = problem.P{
@@ -231,7 +218,7 @@ type FindFixedPathsQuery struct {
 
 // URITemplate returns a rfc6570 URI template for the query struct
 func (q FindFixedPathsQuery) URITemplate() string {
-	return "/paths/strict-send{?" + strings.Join(actions.GetURIParams(&q, false), ",") + "}"
+	return "/paths/strict-send{?" + strings.Join(GetURIParams(&q, false), ",") + "}"
 }
 
 // Validate runs custom validations.
@@ -240,7 +227,7 @@ func (q FindFixedPathsQuery) Validate() error {
 		return destinationAssetsOrDestinationAccount
 	}
 
-	err := actions.ValidateAssetParams(
+	err := ValidateAssetParams(
 		q.SourceAssetType,
 		q.SourceAssetCode,
 		q.SourceAssetIssuer,
@@ -297,7 +284,7 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	ctx := r.Context()
 
 	qp := FindFixedPathsQuery{}
-	err := actions.GetParams(&qp, r)
+	err := GetParams(&qp, r)
 	if err != nil {
 		problem.Render(ctx, w, err)
 		return
@@ -306,10 +293,10 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	destinationAccount := qp.DestinationAccount
 	destinationAssets, _ := qp.Assets()
 
-	if len(destinationAssets) > handler.maxAssetsParamLength {
+	if len(destinationAssets) > handler.MaxAssetsParamLength {
 		p := problem.MakeInvalidFieldProblem(
 			"destination_assets",
-			fmt.Errorf("list of assets exceeds maximum length of %d", handler.maxPathLength),
+			fmt.Errorf("list of assets exceeds maximum length of %d", handler.MaxPathLength),
 		)
 		problem.Render(ctx, w, p)
 		return
@@ -329,11 +316,11 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 	records := []paths.Path{}
 	if len(destinationAssets) > 0 {
 		var lastIngestedLedger uint32
-		records, lastIngestedLedger, err = handler.pathFinder.FindFixedPaths(
+		records, lastIngestedLedger, err = handler.PathFinder.FindFixedPaths(
 			sourceAsset,
 			amountToSpend,
 			destinationAssets,
-			handler.maxPathLength,
+			handler.MaxPathLength,
 		)
 		if err == simplepath.ErrEmptyInMemoryOrderBook {
 			err = horizonProblem.StillIngesting
@@ -343,11 +330,11 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 			return
 		}
 
-		if handler.setLastLedgerHeader {
+		if handler.SetLastLedgerHeader {
 			// To make the Last-Ledger header consistent with the response content,
 			// we need to extract it from the ledger and not the DB.
 			// Thus, we overwrite the header if it was previously set.
-			actions.SetLastLedgerHeader(w, lastIngestedLedger)
+			SetLastLedgerHeader(w, lastIngestedLedger)
 		}
 	}
 
@@ -355,7 +342,7 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 }
 
 func assetsForAddress(r *http.Request, addy string) ([]xdr.Asset, []xdr.Int64, error) {
-	historyQ, err := actions.HistoryQFromRequest(r)
+	historyQ, err := HistoryQFromRequest(r)
 	if err != nil {
 		return nil, nil, err
 	}
