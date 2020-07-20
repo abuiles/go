@@ -178,7 +178,6 @@ func (w *web) mustInstallActions(config Config, pathFinder paths.Finder, session
 
 		findPaths := actions.FindPathsHandler{
 			StaleThreshold:       config.StaleThreshold,
-			CheckHistoryIsStale:  false,
 			SetLastLedgerHeader:  true,
 			MaxPathLength:        config.MaxPathLength,
 			MaxAssetsParamLength: maxAssetsForPathFinding,

@@ -22,7 +22,6 @@ import (
 type FindPathsHandler struct {
 	StaleThreshold       uint
 	MaxPathLength        uint
-	CheckHistoryIsStale  bool
 	SetLastLedgerHeader  bool
 	MaxAssetsParamLength int
 	PathFinder           paths.Finder
