@@ -13,7 +13,6 @@ import (
 	"github.com/stellar/go/services/horizon/internal/resourceadapter"
 	"github.com/stellar/go/services/horizon/internal/simplepath"
 	"github.com/stellar/go/support/render/hal"
-	"github.com/stellar/go/support/render/httpjson"
 	"github.com/stellar/go/support/render/problem"
 	"github.com/stellar/go/xdr"
 )
@@ -75,7 +74,7 @@ func (q StrictReceivePathsQuery) URITemplate() string {
 // Validate runs custom validations.
 func (q StrictReceivePathsQuery) Validate() error {
 	if (len(q.SourceAccount) > 0) == (len(q.SourceAssets) > 0) {
-		return sourceAssetsOrSourceAccount
+		return SourceAssetsOrSourceAccountProblem
 	}
 
 	err := ValidateAssetParams(
@@ -101,7 +100,8 @@ func (q StrictReceivePathsQuery) Validate() error {
 	return nil
 }
 
-var sourceAssetsOrSourceAccount = problem.P{
+// SourceAssetsOrSourceAccountProblem custom error where source assets or account is required
+var SourceAssetsOrSourceAccountProblem = problem.P{
 	Type:   "bad_request",
 	Title:  "Bad Request",
 	Status: http.StatusBadRequest,
@@ -109,14 +109,14 @@ var sourceAssetsOrSourceAccount = problem.P{
 		"Both fields cannot be present.",
 }
 
-// ServeHTTP implements the http.Handler interface
-func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// GetResourcePage finds a list of strict receive paths
+func (handler FindPathsHandler) GetResourcePage(w HeaderWriter, r *http.Request) ([]hal.Pageable, error) {
+	var err error
 	ctx := r.Context()
 	qp := StrictReceivePathsQuery{}
-	err := GetParams(&qp, r)
-	if err != nil {
-		problem.Render(ctx, w, err)
-		return
+
+	if err = GetParams(&qp, r); err != nil {
+		return nil, err
 	}
 
 	query := paths.Query{}
@@ -125,24 +125,19 @@ func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 	query.SourceAssets, _ = qp.Assets()
 
 	if len(query.SourceAssets) > handler.MaxAssetsParamLength {
-		p := problem.MakeInvalidFieldProblem(
+		return nil, problem.MakeInvalidFieldProblem(
 			"source_assets",
 			fmt.Errorf("list of assets exceeds maximum length of %d", handler.MaxPathLength),
 		)
-		problem.Render(ctx, w, p)
-		return
 	}
 	query.DestinationAsset = qp.DestinationAsset()
-
 	if sourceAccount != "" {
 		sourceAccount := xdr.MustAddress(sourceAccount)
 		query.SourceAccount = &sourceAccount
 		query.ValidateSourceBalance = true
-
 		query.SourceAssets, query.SourceAssetBalances, err = assetsForAddress(r, query.SourceAccount.Address())
 		if err != nil {
-			problem.Render(ctx, w, err)
-			return
+			return nil, err
 		}
 	} else {
 		for range query.SourceAssets {
@@ -158,8 +153,7 @@ func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 			err = horizonProblem.StillIngesting
 		}
 		if err != nil {
-			problem.Render(ctx, w, err)
-			return
+			return nil, err
 		}
 
 		if handler.SetLastLedgerHeader {
@@ -170,22 +164,19 @@ func (handler FindPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request
 		}
 	}
 
-	renderPaths(ctx, records, w)
+	return renderPaths(ctx, records)
 }
 
-func renderPaths(ctx context.Context, records []paths.Path, w http.ResponseWriter) {
-	var page hal.BasePage
-	page.Init()
+func renderPaths(ctx context.Context, records []paths.Path) ([]hal.Pageable, error) {
+	var response []hal.Pageable
 	for _, p := range records {
 		var res horizon.Path
-		err := resourceadapter.PopulatePath(ctx, &res, p)
-		if err != nil {
-			problem.Render(ctx, w, err)
-			return
+		if err := resourceadapter.PopulatePath(ctx, &res, p); err != nil {
+			return nil, err
 		}
-		page.Add(res)
+		response = append(response, res)
 	}
-	httpjson.Render(w, page, httpjson.HALJSON)
+	return response, nil
 }
 
 // FindFixedPathsHandler is the http handler for the find fixed payment paths endpoint
@@ -197,7 +188,8 @@ type FindFixedPathsHandler struct {
 	PathFinder           paths.Finder
 }
 
-var destinationAssetsOrDestinationAccount = problem.P{
+// DestinationAssetsOrDestinationAccountProblem custom error where destination asserts or accounts are required
+var DestinationAssetsOrDestinationAccountProblem = problem.P{
 	Type:   "bad_request",
 	Title:  "Bad Request",
 	Status: http.StatusBadRequest,
@@ -223,7 +215,7 @@ func (q FindFixedPathsQuery) URITemplate() string {
 // Validate runs custom validations.
 func (q FindFixedPathsQuery) Validate() error {
 	if (len(q.DestinationAccount) > 0) == (len(q.DestinationAssets) > 0) {
-		return destinationAssetsOrDestinationAccount
+		return DestinationAssetsOrDestinationAccountProblem
 	}
 
 	err := ValidateAssetParams(
@@ -278,34 +270,30 @@ func (q FindFixedPathsQuery) SourceAsset() xdr.Asset {
 	return asset
 }
 
-// ServeHTTP implements the http.Handler interface
-func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+// GetResourcePage returns a list of strict send paths
+func (handler FindFixedPathsHandler) GetResourcePage(w HeaderWriter, r *http.Request) ([]hal.Pageable, error) {
+	var err error
 	ctx := r.Context()
-
 	qp := FindFixedPathsQuery{}
-	err := GetParams(&qp, r)
-	if err != nil {
-		problem.Render(ctx, w, err)
-		return
+
+	if err = GetParams(&qp, r); err != nil {
+		return nil, err
 	}
 
 	destinationAccount := qp.DestinationAccount
 	destinationAssets, _ := qp.Assets()
 
 	if len(destinationAssets) > handler.MaxAssetsParamLength {
-		p := problem.MakeInvalidFieldProblem(
+		return nil, problem.MakeInvalidFieldProblem(
 			"destination_assets",
 			fmt.Errorf("list of assets exceeds maximum length of %d", handler.MaxPathLength),
 		)
-		problem.Render(ctx, w, p)
-		return
 	}
 
 	if destinationAccount != "" {
 		destinationAssets, _, err = assetsForAddress(r, destinationAccount)
 		if err != nil {
-			problem.Render(ctx, w, err)
-			return
+			return nil, err
 		}
 	}
 
@@ -325,8 +313,7 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 			err = horizonProblem.StillIngesting
 		}
 		if err != nil {
-			problem.Render(ctx, w, err)
-			return
+			return nil, err
 		}
 
 		if handler.SetLastLedgerHeader {
@@ -337,7 +324,7 @@ func (handler FindFixedPathsHandler) ServeHTTP(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	renderPaths(ctx, records, w)
+	return renderPaths(ctx, records)
 }
 
 func assetsForAddress(r *http.Request, addy string) ([]xdr.Asset, []xdr.Int64, error) {

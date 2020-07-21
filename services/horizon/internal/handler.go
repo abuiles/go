@@ -264,6 +264,47 @@ func (handler objectActionHandler) ServeHTTP(
 	problem.Render(r.Context(), w, hProblem.NotAcceptable)
 }
 
+func basePageHandler(action pageAction) basePageActionHandler {
+	return basePageActionHandler{action: action}
+}
+
+// Renders a page with no links and only embedded records.
+type basePageActionHandler struct {
+	action pageAction
+}
+
+func (handler basePageActionHandler) buildPage(records []hal.Pageable) hal.BasePage {
+	var page hal.BasePage
+	page.Init()
+	for _, record := range records {
+		page.Add(record)
+	}
+	return page
+}
+
+func (handler basePageActionHandler) ServeHTTP(
+	w http.ResponseWriter,
+	r *http.Request,
+) {
+	switch render.Negotiate(r) {
+	case render.MimeHal, render.MimeJSON:
+		response, err := handler.action.GetResourcePage(w, r)
+		if err != nil {
+			problem.Render(r.Context(), w, err)
+			return
+		}
+
+		httpjson.Render(
+			w,
+			handler.buildPage(response),
+			httpjson.HALJSON,
+		)
+		return
+	}
+
+	problem.Render(r.Context(), w, hProblem.NotAcceptable)
+}
+
 const defaultObjectStreamLimit = 10
 
 type streamableObjectAction interface {

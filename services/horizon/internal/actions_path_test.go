@@ -1,4 +1,4 @@
-package actions
+package horizon
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/stellar/go/protocols/horizon"
+	"github.com/stellar/go/services/horizon/internal/actions"
 	horizonContext "github.com/stellar/go/services/horizon/internal/context"
 	"github.com/stellar/go/services/horizon/internal/db2/history"
 	"github.com/stellar/go/services/horizon/internal/paths"
@@ -31,18 +32,18 @@ func mockPathFindingClient(
 	session *db.Session,
 ) test.RequestHelper {
 	router := chi.NewRouter()
-	findPaths := FindPathsHandler{
+	findPaths := basePageHandler(actions.FindPathsHandler{
 		PathFinder:           finder,
 		MaxAssetsParamLength: maxAssetsParamLength,
 		MaxPathLength:        3,
 		SetLastLedgerHeader:  true,
-	}
-	findFixedPaths := FindFixedPathsHandler{
+	})
+	findFixedPaths := basePageHandler(actions.FindFixedPathsHandler{
 		PathFinder:           finder,
 		MaxAssetsParamLength: maxAssetsParamLength,
 		MaxPathLength:        3,
 		SetLastLedgerHeader:  true,
-	}
+	})
 
 	router.Use(func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +109,7 @@ func TestPathActionsStillIngesting(t *testing.T) {
 		w := rh.Get(uri + "?" + q.Encode())
 		assertions.Equal(horizonProblem.StillIngesting.Status, w.Code)
 		assertions.Problem(w.Body, horizonProblem.StillIngesting)
-		assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
+		assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
 	}
 
 	q = make(url.Values)
@@ -122,7 +123,7 @@ func TestPathActionsStillIngesting(t *testing.T) {
 	w := rh.Get("/paths/strict-send" + "?" + q.Encode())
 	assertions.Equal(horizonProblem.StillIngesting.Status, w.Code)
 	assertions.Problem(w.Body, horizonProblem.StillIngesting)
-	assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
+	assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
 
 	finder.AssertExpectations(t)
 }
@@ -257,12 +258,12 @@ func TestPathActionsStrictReceive(t *testing.T) {
 	for _, uri := range []string{"/paths", "/paths/strict-receive"} {
 		w := rh.Get(uri + "?" + withSourceAccount.Encode())
 		tt.Assert.Equal(http.StatusOK, w.Code)
-		tt.Assert.Equal("1234", w.Header().Get(LastLedgerHeaderName))
+		tt.Assert.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
 
 		withSourceAssetsBalance = false
 		w = rh.Get(uri + "?" + withSourceAssets.Encode())
 		tt.Assert.Equal(http.StatusOK, w.Code)
-		tt.Assert.Equal("1234", w.Header().Get(LastLedgerHeaderName))
+		tt.Assert.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
 		withSourceAssetsBalance = true
 	}
 
@@ -306,7 +307,7 @@ func TestPathActionsEmptySourceAcount(t *testing.T) {
 		inMemoryResponse := []horizon.Path{}
 		tt.UnmarshalPage(w.Body, &inMemoryResponse)
 		assertions.Empty(inMemoryResponse)
-		tt.Assert.Equal("", w.Header().Get(LastLedgerHeaderName))
+		tt.Assert.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
 	}
 }
 
@@ -365,12 +366,12 @@ func TestPathActionsSourceAssetsValidation(t *testing.T) {
 		{
 			"both destination asset and destination account are missing",
 			missingSourceAccountAndAssets,
-			sourceAssetsOrSourceAccount,
+			actions.SourceAssetsOrSourceAccountProblem,
 		},
 		{
 			"both destination asset and destination account are present",
 			sourceAccountAndAssets,
-			sourceAssetsOrSourceAccount,
+			actions.SourceAssetsOrSourceAccountProblem,
 		},
 		{
 			"too many assets in destination_assets",
@@ -385,7 +386,7 @@ func TestPathActionsSourceAssetsValidation(t *testing.T) {
 			w := rh.Get("/paths/strict-receive?" + testCase.q.Encode())
 			assertions.Equal(testCase.expectedProblem.Status, w.Code)
 			assertions.Problem(w.Body, testCase.expectedProblem)
-			assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
+			assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
 		})
 	}
 }
@@ -448,12 +449,12 @@ func TestPathActionsDestinationAssetsValidation(t *testing.T) {
 		{
 			"both destination asset and destination account are missing",
 			missingDestinationAccountAndAssets,
-			destinationAssetsOrDestinationAccount,
+			actions.DestinationAssetsOrDestinationAccountProblem,
 		},
 		{
 			"both destination asset and destination account are present",
 			destinationAccountAndAssets,
-			destinationAssetsOrDestinationAccount,
+			actions.DestinationAssetsOrDestinationAccountProblem,
 		},
 		{
 			"too many assets in destination_assets",
@@ -468,7 +469,7 @@ func TestPathActionsDestinationAssetsValidation(t *testing.T) {
 			w := rh.Get("/paths/strict-send?" + testCase.q.Encode())
 			assertions.Equal(testCase.expectedProblem.Status, w.Code)
 			assertions.Problem(w.Body, testCase.expectedProblem)
-			assertions.Equal("", w.Header().Get(LastLedgerHeaderName))
+			assertions.Equal("", w.Header().Get(actions.LastLedgerHeaderName))
 		})
 	}
 }
@@ -582,13 +583,13 @@ func TestPathActionsStrictSend(t *testing.T) {
 
 	w := rh.Get("/paths/strict-send?" + q.Encode())
 	assertions.Equal(http.StatusOK, w.Code)
-	assertions.Equal("1234", w.Header().Get(LastLedgerHeaderName))
+	assertions.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
 
 	q.Del("destination_account")
 	q.Add("destination_assets", assetsToURLParam(destinationAssets))
 	w = rh.Get("/paths/strict-send?" + q.Encode())
 	assertions.Equal(http.StatusOK, w.Code)
-	assertions.Equal("1234", w.Header().Get(LastLedgerHeaderName))
+	assertions.Equal("1234", w.Header().Get(actions.LastLedgerHeaderName))
 
 	finder.AssertExpectations(t)
 }
@@ -619,7 +620,7 @@ func TestFindFixedPathsQueryQueryURLTemplate(t *testing.T) {
 		"source_amount",
 	}
 	expected := "/paths/strict-send{?" + strings.Join(params, ",") + "}"
-	qp := FindFixedPathsQuery{}
+	qp := actions.FindFixedPathsQuery{}
 	tt.Equal(expected, qp.URITemplate())
 }
 
@@ -635,6 +636,6 @@ func TestStrictReceivePathsQueryURLTemplate(t *testing.T) {
 		"destination_amount",
 	}
 	expected := "/paths/strict-receive{?" + strings.Join(params, ",") + "}"
-	qp := StrictReceivePathsQuery{}
+	qp := actions.StrictReceivePathsQuery{}
 	tt.Equal(expected, qp.URITemplate())
 }
