@@ -176,14 +176,14 @@ func (w *web) mustInstallActions(config Config, pathFinder paths.Finder, session
 
 		r.Method(http.MethodGet, "/assets", restPageHandler(actions.AssetStatsHandler{}))
 
-		findPaths := basePageHandler(actions.FindPathsHandler{
+		findPaths := restCustomBuiltPageHandler(actions.FindPathsHandler{
 			StaleThreshold:       config.StaleThreshold,
 			SetLastLedgerHeader:  true,
 			MaxPathLength:        config.MaxPathLength,
 			MaxAssetsParamLength: maxAssetsForPathFinding,
 			PathFinder:           pathFinder,
 		})
-		findFixedPaths := basePageHandler(actions.FindFixedPathsHandler{
+		findFixedPaths := restCustomBuiltPageHandler(actions.FindFixedPathsHandler{
 			MaxPathLength:        config.MaxPathLength,
 			SetLastLedgerHeader:  true,
 			MaxAssetsParamLength: maxAssetsForPathFinding,

@@ -109,6 +109,10 @@ var SourceAssetsOrSourceAccountProblem = problem.P{
 		"Both fields cannot be present.",
 }
 
+func (handler FindPathsHandler) BuildPage(r *http.Request, records []hal.Pageable) (interface{}, error) {
+	return buildBasePageFromRecords(records), nil
+}
+
 // GetResourcePage finds a list of strict receive paths
 func (handler FindPathsHandler) GetResourcePage(w HeaderWriter, r *http.Request) ([]hal.Pageable, error) {
 	var err error
@@ -270,6 +274,10 @@ func (q FindFixedPathsQuery) SourceAsset() xdr.Asset {
 	return asset
 }
 
+func (handler FindFixedPathsHandler) BuildPage(r *http.Request, records []hal.Pageable) (interface{}, error) {
+	return buildBasePageFromRecords(records), nil
+}
+
 // GetResourcePage returns a list of strict send paths
 func (handler FindFixedPathsHandler) GetResourcePage(w HeaderWriter, r *http.Request) ([]hal.Pageable, error) {
 	var err error
@@ -333,4 +341,13 @@ func assetsForAddress(r *http.Request, addy string) ([]xdr.Asset, []xdr.Int64, e
 		return nil, nil, err
 	}
 	return historyQ.AssetsForAddress(addy)
+}
+
+func buildBasePageFromRecords(records []hal.Pageable) hal.BasePage {
+	var page hal.BasePage
+	page.Init()
+	for _, record := range records {
+		page.Add(record)
+	}
+	return page
 }
