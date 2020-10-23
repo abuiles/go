@@ -439,7 +439,7 @@ func TestCaptivePrepareRangeUnboundedRange_ReuseSession(t *testing.T) {
 	}
 
 	mockRunner := &stellarCoreRunnerMock{}
-	mockRunner.On("runFrom", uint32(63), "0000000000000000000000000000000000000000000000000000000000000000").Return(nil).Once()
+	mockRunner.On("runFrom", uint32(64), "0000000000000000000000000000000000000000000000000000000000000000").Return(nil).Once()
 	mockRunner.On("getMetaPipe").Return(&buf)
 	mockRunner.On("close").Return(nil)
 
@@ -450,7 +450,7 @@ func TestCaptivePrepareRangeUnboundedRange_ReuseSession(t *testing.T) {
 			CurrentLedger: uint32(129),
 		}, nil)
 	mockArchive.
-		On("GetLedgerHeader", uint32(63)).
+		On("GetLedgerHeader", uint32(64)).
 		Return(xdr.LedgerHeaderHistoryEntry{}, nil)
 
 	captiveBackend := CaptiveStellarCore{
@@ -799,7 +799,7 @@ func TestCaptiveRunFromParams(t *testing.T) {
 	mockRunner := &stellarCoreRunnerMock{}
 	mockArchive := &historyarchive.MockArchive{}
 	mockArchive.
-		On("GetLedgerHeader", uint32(63)).
+		On("GetLedgerHeader", uint32(69)).
 		Return(xdr.LedgerHeaderHistoryEntry{
 			Hash: xdr.Hash{1, 1, 1, 1},
 		}, nil)
@@ -812,14 +812,20 @@ func TestCaptiveRunFromParams(t *testing.T) {
 
 	runFrom, ledgerHash, nextLedger, err := captiveBackend.runFromParams(70)
 	tt.NoError(err)
-	tt.Equal(uint32(63), runFrom)
+	tt.Equal(uint32(69), runFrom)
 	tt.Equal("0101010100000000000000000000000000000000000000000000000000000000", ledgerHash)
 	tt.Equal(uint32(64), nextLedger)
+
+	mockArchive.
+		On("GetLedgerHeader", uint32(63)).
+		Return(xdr.LedgerHeaderHistoryEntry{
+			Hash: xdr.Hash{1, 1, 0, 0},
+		}, nil)
 
 	runFrom, ledgerHash, nextLedger, err = captiveBackend.runFromParams(64)
 	tt.NoError(err)
 	tt.Equal(uint32(63), runFrom)
-	tt.Equal("0101010100000000000000000000000000000000000000000000000000000000", ledgerHash)
+	tt.Equal("0101000000000000000000000000000000000000000000000000000000000000", ledgerHash)
 	tt.Equal(uint32(64), nextLedger)
 
 	mockArchive.
@@ -848,7 +854,7 @@ func TestCaptiveRunFromParams(t *testing.T) {
 	tt.EqualError(err, "error trying to read ledger header 319 from HAS: missing ledger checkpoint")
 
 	mockArchive.
-		On("GetLedgerHeader", uint32(191)).
+		On("GetLedgerHeader", uint32(194)).
 		Return(xdr.LedgerHeaderHistoryEntry{
 			Header: xdr.LedgerHeader{
 				PreviousLedgerHash: xdr.Hash{1},
@@ -856,5 +862,5 @@ func TestCaptiveRunFromParams(t *testing.T) {
 		}, errors.New("missing ledger checkpoint"))
 
 	runFrom, ledgerHash, nextLedger, err = captiveBackend.runFromParams(195)
-	tt.EqualError(err, "error trying to read ledger header 191 from HAS: missing ledger checkpoint")
+	tt.EqualError(err, "error trying to read ledger header 194 from HAS: missing ledger checkpoint")
 }

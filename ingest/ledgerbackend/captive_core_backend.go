@@ -290,14 +290,18 @@ func (c *CaptiveStellarCore) runFromParams(from uint32) (runFrom uint32, ledgerH
 		// ledger and then fast-forward to the desire ledger
 		//
 		//
-		runFrom = roundDownToFirstReplayAfterCheckpointStart(from) - 1
+		runFrom = from - 1
 		ledgerHeader, err2 := c.archive.GetLedgerHeader(runFrom)
 		if err2 != nil {
 			err = errors.Wrapf(err2, "error trying to read ledger header %d from HAS", runFrom)
 			return
 		}
 		ledgerHash = hex.EncodeToString(ledgerHeader.Hash[:])
-		nextLedger = runFrom + 1
+		if historyarchive.IsCheckpoint(runFrom) {
+			nextLedger = runFrom + 1
+		} else {
+			nextLedger = roundDownToFirstReplayAfterCheckpointStart(runFrom)
+		}
 	}
 
 	return
