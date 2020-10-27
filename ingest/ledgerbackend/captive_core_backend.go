@@ -258,7 +258,9 @@ func (c *CaptiveStellarCore) openOnlineReplaySubprocess(from uint32) error {
 		c.blocking = true
 		_, _, err := c.GetLedger(from)
 		c.blocking = false
-		return errors.Wrapf(err, "Error fast-forwarding to %d", from)
+		if err != nil {
+			return errors.Wrapf(err, "Error fast-forwarding to %d", from)
+		}
 	}
 
 	return nil
